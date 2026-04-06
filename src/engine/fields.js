@@ -18,7 +18,7 @@ function fractalNoise(x, y, z, octaves) {
 }
 
 // Curl noise (2D) — divergence-free field
-function curlNoise(x, y, z, scale, octaves) {
+function curlNoise(x, y, z, octaves) {
   const eps = 0.001
   const n1 = fractalNoise(x, y + eps, z, octaves)
   const n2 = fractalNoise(x, y - eps, z, octaves)
@@ -47,7 +47,7 @@ export function getFieldVector(px, py, width, height, config, time) {
       break
     }
     case 'curl': {
-      const c = curlNoise(x, y, z, scale, noiseOctaves)
+      const c = curlNoise(x, y, z, noiseOctaves)
       vx = c.x
       vy = c.y
       const mag = Math.sqrt(vx * vx + vy * vy) || 1
@@ -96,6 +96,24 @@ export function getFieldVector(px, py, width, height, config, time) {
       const angle = fractalNoise(x, y, z, noiseOctaves) * Math.PI * 4
       vx = Math.cos(angle)
       vy = Math.sin(angle)
+    }
+  }
+
+  // Gravity wells
+  const wells = config.gravityWells
+  if (wells && wells.length > 0) {
+    for (let w = 0; w < wells.length; w++) {
+      const well = wells[w]
+      const dx = well.x - px
+      const dy = well.y - py
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      const radius = 300
+      if (dist < radius && dist > 5) {
+        const force = (1 - dist / radius) * well.strength * 0.8
+        const sign = well.type === 'attractor' ? 1 : -1
+        vx += (dx / dist) * force * sign
+        vy += (dy / dist) * force * sign
+      }
     }
   }
 

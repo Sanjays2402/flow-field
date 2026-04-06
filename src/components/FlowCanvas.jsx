@@ -1,28 +1,34 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { ParticleSystem } from '../engine/particles.js'
 
-export default function FlowCanvas({ config, onMouseMove }) {
+export default function FlowCanvas({ config, onMouseMove, onFpsUpdate, onCanvasClick }) {
   const canvasRef = useRef(null)
   const systemRef = useRef(null)
   const configRef = useRef(config)
   const rafRef = useRef(null)
+  const animateRef = useRef(null)
 
-  configRef.current = config
-
-  const animate = useCallback(() => {
-    const system = systemRef.current
-    if (!system) return
-    system.update(configRef.current)
-    system.draw(configRef.current)
-    rafRef.current = requestAnimationFrame(animate)
-  }, [])
+  // Keep config ref in sync
+  useEffect(() => {
+    configRef.current = config
+  })
 
   useEffect(() => {
     const canvas = canvasRef.current
     const system = new ParticleSystem()
     systemRef.current = system
     system.init(canvas, configRef.current)
-    rafRef.current = requestAnimationFrame(animate)
+    system.onFpsUpdate = (fps, count) => {
+      if (onFpsUpdate) onFpsUpdate(fps, count)
+    }
+
+    const loop = () => {
+      system.update(configRef.current)
+      system.draw(configRef.current)
+      rafRef.current = requestAnimationFrame(loop)
+    }
+    animateRef.current = loop
+    rafRef.current = requestAnimationFrame(loop)
 
     const handleResize = () => {
       system.resize()
@@ -34,7 +40,7 @@ export default function FlowCanvas({ config, onMouseMove }) {
       system.destroy()
       window.removeEventListener('resize', handleResize)
     }
-  }, [animate])
+  }, [onFpsUpdate])
 
   // Update particle count when config changes
   useEffect(() => {
@@ -51,11 +57,18 @@ export default function FlowCanvas({ config, onMouseMove }) {
     onMouseMove(null, null)
   }, [onMouseMove])
 
+  const handleClick = useCallback((e) => {
+    if (onCanvasClick) {
+      onCanvasClick(e.clientX, e.clientY, e.shiftKey)
+    }
+  }, [onCanvasClick])
+
   return (
     <canvas
       ref={canvasRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
       style={{
         position: 'fixed',
         top: 0,
@@ -66,8 +79,4 @@ export default function FlowCanvas({ config, onMouseMove }) {
       }}
     />
   )
-}
-
-export function getSystemRef() {
-  return null // Handled via ref in parent
 }
